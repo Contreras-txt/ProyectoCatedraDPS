@@ -4,13 +4,13 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { CartContext } from '../context/CartContext';
-import { AlertContext } from '../context/AlertContext'; // NUEVO
+import { AlertContext } from '../context/AlertContext';
 import { getImageUrl } from '../config/api';
 
 export default function ProductDetailScreen({ route, navigation }) {
   const { product, categoryName = '', section = '' } = route.params;
   const { addToCart, cartCount } = useContext(CartContext);
-  const { showAlert } = useContext(AlertContext); // NUEVO
+  const { showAlert } = useContext(AlertContext);
 
   const [selectedSize, setSelectedSize] = useState(null);
   const [quantity, setQuantity] = useState(1);
@@ -43,7 +43,6 @@ export default function ProductDetailScreen({ route, navigation }) {
 
     addToCart(product, selectedSize || 'Única', quantity);
 
-    // REEMPLAZO: Alerta con botones dinámicos usando nuestro Contexto
     showAlert({
       title: '¡Agregado al carrito!',
       message: `${quantity} × ${product.NombreProducto}${selectedSize ? ` (Talla ${selectedSize})` : ''}`,
@@ -132,7 +131,6 @@ export default function ProductDetailScreen({ route, navigation }) {
   );
 }
 
-// ... (Estilos idénticos, omitidos por brevedad)
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#fff', paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0 },
   header: { flexDirection: 'row', justifyContent: 'space-between', padding: 15, position: 'absolute', top: Platform.OS === 'android' ? StatusBar.currentHeight : 0, left: 0, right: 0, zIndex: 10 },
