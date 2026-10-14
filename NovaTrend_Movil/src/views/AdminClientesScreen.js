@@ -17,7 +17,7 @@ export default function AdminClientesScreen({ navigation }) {
     setCargando(true);
     try {
       // Ajusta la IP si es necesario según tu configuración
-      const response = await fetch('http://192.168.1.4/novatrend_api/admin/clientes');
+      const response = await fetch('http://192.168.X.X/novatrend_api/admin/clientes');
       const data = await response.json();
       if (Array.isArray(data)) {
         setClientes(data);
