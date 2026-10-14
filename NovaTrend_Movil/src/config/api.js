@@ -1,5 +1,5 @@
 // src/config/api.js
-export const API_BASE = 'http://192.168.3.46/novatrend_api';
+export const API_BASE = 'http://192.168.X.X/novatrend_api';
 
 const PLACEHOLDER = 'https://dummyimage.com/300x400/e5e5e5/777777.jpg&text=Sin+Imagen';
 
