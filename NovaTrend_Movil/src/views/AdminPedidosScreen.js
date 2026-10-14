@@ -21,7 +21,7 @@ export default function AdminPedidosScreen({ navigation }) {
   const cargarPedidos = async () => {
     setCargando(true);
     try {
-      const response = await fetch('http://192.168.1.4/novatrend_api/admin/pedidos');
+      const response = await fetch('http://192.168.X.X/novatrend_api/admin/pedidos');
       const data = await response.json();
       setPedidos(data || []);
     } catch (error) {
