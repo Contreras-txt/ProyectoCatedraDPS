@@ -4,7 +4,7 @@ import {
   StatusBar, ScrollView, Image, ActivityIndicator, KeyboardAvoidingView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import * as Location from 'expo-location'; // NUEVO: Módulo nativo de GPS
+import * as Location from 'expo-location';
 import colors from '../utils/colors';
 import { DEPARTAMENTOS } from '../utils/departamentos';
 import SelectField from '../components/SelectField';
@@ -28,7 +28,7 @@ export default function RegisterScreen({ navigation }) {
     ciudad: '', departamento: '', password: '', confirmPassword: '',
   });
   const [loading, setLoading] = useState(false);
-  const [gpsLoading, setGpsLoading] = useState(false); // NUEVO: Estado para el botón GPS
+  const [gpsLoading, setGpsLoading] = useState(false);
   
   const { loginClient } = useContext(CartContext);
   const { showAlert, showToast } = useContext(AlertContext);
@@ -37,11 +37,9 @@ export default function RegisterScreen({ navigation }) {
   const soloLetras = (t) => t.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s]/g, '').slice(0, 35);
   const soloDigitos = (t) => t.replace(/\D/g, '').slice(0, 8);
 
-  // NUEVO: Función para autocompletar dirección con GPS
   const obtenerUbicacion = async () => {
     setGpsLoading(true);
     try {
-      // 1. Pedir permiso al sistema
       const { status } = await Location.requestForegroundPermissionsAsync();
       
       if (status !== 'granted') {
@@ -54,10 +52,8 @@ export default function RegisterScreen({ navigation }) {
         return;
       }
 
-      // 2. Obtener coordenadas
       const location = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
       
-      // 3. Convertir coordenadas a texto (Reverse Geocoding)
       const geocode = await Location.reverseGeocodeAsync({
         latitude: location.coords.latitude,
         longitude: location.coords.longitude
@@ -69,11 +65,9 @@ export default function RegisterScreen({ navigation }) {
         const ciudadDetectada = place.city || place.subregion || '';
         const regionDetectada = place.region || '';
         
-        // Autollenar campos
         if(direccionCompleta) set('direccion', direccionCompleta.substring(0, 100));
         if(ciudadDetectada) set('ciudad', ciudadDetectada.substring(0, 50));
         
-        // Intentar hacer match automático con el select del departamento
         const deptMatch = DEPARTAMENTOS.find(d => regionDetectada.toLowerCase().includes(d.toLowerCase()));
         if (deptMatch) set('departamento', deptMatch);
 
