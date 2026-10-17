@@ -210,13 +210,22 @@ class ProductoModel {
 
     public function obtenerDetallePedidoAdmin(int $idOrden): array {
         $stmt = $this->pdo->prepare("
-            SELECT d.*, p.NombreProducto, p.Imagen
+            SELECT d.*, p.NombreProducto, COALESCE(NULLIF(p.Imagen, ''), 'default.jpg') AS Imagen
             FROM detalles_orden d
             JOIN productos p ON d.IDProducto = p.IDProducto
             WHERE d.IDOrden = :id
         ");
         $stmt->execute([':id' => $idOrden]);
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $detalles = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        // Validación de respaldo estricta en PHP
+        foreach ($detalles as &$fila) {
+            if (empty($fila['Imagen'])) {
+                $fila['Imagen'] = 'default.jpg';
+            }
+        }
+        
+        return $detalles;
     }
 
     public function actualizarEstadoPedido(int $idOrden, string $estado): bool {
@@ -243,4 +252,3 @@ class ProductoModel {
         ");
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
-}
