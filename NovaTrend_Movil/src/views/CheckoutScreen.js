@@ -4,21 +4,29 @@ import {
   KeyboardAvoidingView, Platform, StatusBar, ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import DateTimePicker from '@react-native-community/datetimepicker'; // NUEVO CALENDARIO
 import { CartContext } from '../context/CartContext';
-import { AlertContext } from '../context/AlertContext'; // NUEVO
+import { AlertContext } from '../context/AlertContext'; 
 import SelectField from '../components/SelectField';
 import { DEPARTAMENTOS } from '../utils/departamentos';
 import { apiPost, getImageUrl } from '../config/api';
 
-// ── Fechas (DD/MM/YYYY en pantalla, YYYY-MM-DD hacia el servidor) ──
 const pad = (n) => String(n).padStart(2, '0');
 const fmt = (d) => `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
+
 const fechaMinima = () => {
   const d = new Date();
   d.setHours(0, 0, 0, 0);
   d.setDate(d.getDate() + 3);
   return d;
 };
+
+const fechaMaxima = () => {
+  const d = fechaMinima();
+  d.setDate(d.getDate() + 30);
+  return d;
+};
+
 const parseFecha = (txt) => {
   const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(txt);
   if (!m) return null;
@@ -27,12 +35,6 @@ const parseFecha = (txt) => {
   if (date.getFullYear() !== y || date.getMonth() !== mo - 1 || date.getDate() !== d) return null;
   return date;
 };
-const maskFecha = (t) => {
-  const d = t.replace(/\D/g, '').slice(0, 8);
-  if (d.length <= 2) return d;
-  if (d.length <= 4) return `${d.slice(0, 2)}/${d.slice(2)}`;
-  return `${d.slice(0, 2)}/${d.slice(2, 4)}/${d.slice(4)}`;
-};
 
 const Label = ({ text, required }) => (
   <Text style={styles.label}>{text}{required ? <Text style={styles.req}> *</Text> : null}</Text>
@@ -40,7 +42,7 @@ const Label = ({ text, required }) => (
 
 export default function CheckoutScreen({ navigation }) {
   const { cart, cartTotal, clearCart, userSession, logoutClient, ready } = useContext(CartContext);
-  const { showAlert } = useContext(AlertContext); // NUEVO
+  const { showAlert } = useContext(AlertContext); 
 
   const [nombre, setNombre] = useState('');
   const [apellido, setApellido] = useState('');
@@ -49,6 +51,7 @@ export default function CheckoutScreen({ navigation }) {
   const [departamento, setDepartamento] = useState('');
   const [telefono, setTelefono] = useState('');
   const [fechaEntrega, setFechaEntrega] = useState('');
+  const [showDatePicker, setShowDatePicker] = useState(false); // NUEVO ESTADO PARA EL CALENDARIO
   const [metodoPago, setMetodoPago] = useState('Transferencia');
 
   const [enviando, setEnviando] = useState(false);
@@ -70,6 +73,14 @@ export default function CheckoutScreen({ navigation }) {
 
   const soloLetras = (t) => t.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s]/g, '').slice(0, 35);
   const minima = fechaMinima();
+  const maxima = fechaMaxima();
+
+  const onChangeFecha = (event, selectedDate) => {
+    setShowDatePicker(false);
+    if (selectedDate) {
+      setFechaEntrega(fmt(selectedDate));
+    }
+  };
 
   const confirmarPedido = async () => {
     if (!nombre.trim() || !apellido.trim() || !direccion.trim() || !ciudad.trim() || !departamento || !telefono || !fechaEntrega) {
@@ -80,9 +91,10 @@ export default function CheckoutScreen({ navigation }) {
       showAlert({ title: 'Teléfono inválido', message: 'El número de teléfono debe tener exactamente 8 dígitos.', type: 'warning' });
       return;
     }
+    
     const fecha = parseFecha(fechaEntrega);
-    if (!fecha || fecha < minima) {
-      showAlert({ title: 'Fecha inválida', message: `Ingresa una fecha válida a partir del ${fmt(minima)} (DD/MM/YYYY).`, type: 'warning' });
+    if (!fecha || fecha < minima || fecha > maxima) {
+      showAlert({ title: 'Fecha inválida', message: 'Por favor selecciona una fecha válida desde el calendario.', type: 'warning' });
       return;
     }
 
@@ -106,7 +118,6 @@ export default function CheckoutScreen({ navigation }) {
       setOrden({ idOrden: res.data.idOrden, total: res.data.total, metodoPago });
       clearCart();
     } catch (err) {
-      // Aunque apiPost captura SESSION_EXPIRED globalmente, si llega aquí mostramos la alerta custom con botón
       if (err.status === 401 || err.message === 'SESSION_EXPIRED') {
         showAlert({ 
           title: 'Sesión expirada', 
@@ -124,7 +135,6 @@ export default function CheckoutScreen({ navigation }) {
 
   const irATienda = () => navigation.reset({ index: 0, routes: [{ name: 'Home' }] });
 
-  // ── PANTALLA DE ÉXITO ──
   if (orden) {
     return (
       <SafeAreaView style={styles.successContainer}>
@@ -150,7 +160,6 @@ export default function CheckoutScreen({ navigation }) {
     );
   }
 
-  // ── CARRITO VACÍO ──
   if (ready && cart.length === 0) {
     return (
       <SafeAreaView style={styles.container}>
@@ -166,13 +175,12 @@ export default function CheckoutScreen({ navigation }) {
     );
   }
 
-  // ── FORMULARIO (Se mantiene igual a nivel de etiquetas y estilos) ──
   return (
     <SafeAreaView style={styles.container}>
       <Header navigation={navigation} />
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
-          {/* 1. DIRECCIÓN */}
+          
           <View style={styles.card}>
             <CardTitle step="1" title="DIRECCIÓN DE ENTREGA" />
             <View style={styles.cardBody}>
@@ -211,17 +219,35 @@ export default function CheckoutScreen({ navigation }) {
               <TextInput style={styles.input} value={telefono} onChangeText={(t) => setTelefono(t.replace(/\D/g, '').slice(0, 8))} placeholder="Ej. 70000000" placeholderTextColor="#999" keyboardType="number-pad" />
 
               <Label text="FECHA DE ENTREGA DESEADA" required />
-              <TextInput style={styles.input} value={fechaEntrega} onChangeText={(t) => setFechaEntrega(maskFecha(t))} placeholder="DD/MM/YYYY" placeholderTextColor="#999" keyboardType="number-pad" maxLength={10} />
-              <TouchableOpacity onPress={() => setFechaEntrega(fmt(minima))} style={styles.helperRow}>
-                <Ionicons name="information-circle-outline" size={14} color="#c0392b" />
-                <Text style={styles.helperText}>
-                  La entrega se realizará en un período de 3 días hábiles. Primera fecha disponible: {fmt(minima)} (toca para usarla).
+              <TouchableOpacity 
+                style={[styles.input, { justifyContent: 'center' }]} 
+                onPress={() => setShowDatePicker(true)}
+              >
+                <Text style={{ color: fechaEntrega ? '#000' : '#999', fontSize: 14 }}>
+                  {fechaEntrega || 'Seleccionar fecha en el calendario...'}
                 </Text>
               </TouchableOpacity>
+
+              {showDatePicker && (
+                <DateTimePicker
+                  value={fechaEntrega ? parseFecha(fechaEntrega) : minima}
+                  mode="date"
+                  display="default"
+                  minimumDate={minima}
+                  maximumDate={maxima}
+                  onChange={onChangeFecha}
+                />
+              )}
+
+              <View style={styles.helperRow}>
+                <Ionicons name="information-circle-outline" size={14} color="#c0392b" />
+                <Text style={styles.helperText}>
+                  La entrega se realizará en un período de 3 días hábiles.
+                </Text>
+              </View>
             </View>
           </View>
 
-          {/* 2. MÉTODO DE PAGO */}
           <View style={styles.card}>
             <CardTitle step="2" title="MÉTODO DE PAGO" />
             <View style={styles.cardBody}>
@@ -263,7 +289,6 @@ export default function CheckoutScreen({ navigation }) {
             </View>
           </View>
 
-          {/* 3. RESUMEN */}
           <View style={styles.card}>
             <View style={styles.cardTitleRow}>
               <View style={styles.stepCircle}><Ionicons name="checkmark" size={14} color="#fff" /></View>
@@ -325,7 +350,6 @@ const CardTitle = ({ step, title }) => (
   </View>
 );
 
-// ... (El bloque const styles = StyleSheet.create({...}) se mantiene idéntico, omitido por brevedad en este documento para no extenderlo, pero por favor déjalo intacto en tu archivo).
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F4F4F2', paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0 },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#000', paddingHorizontal: 15, paddingVertical: 12 },
