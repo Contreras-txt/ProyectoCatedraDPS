@@ -4,7 +4,8 @@ import {
   Platform, StatusBar, ActivityIndicator, Alert, Modal, Pressable
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { apiPost } from '../config/api';
+import AsyncStorage from '@react-native-async-storage/async-storage'; // NUEVO
+import { apiPost, API_BASE } from '../config/api';
 
 export default function AdminPedidosScreen({ navigation }) {
   const [pedidos, setPedidos] = useState([]);
@@ -21,9 +22,29 @@ export default function AdminPedidosScreen({ navigation }) {
   const cargarPedidos = async () => {
     setCargando(true);
     try {
-      const response = await fetch('http://192.168.X.X/novatrend_api/admin/pedidos');
+      // 1. Extraemos el token del administrador
+      const sessionData = await AsyncStorage.getItem('@novatrend_admin_session');
+      const token = sessionData ? JSON.parse(sessionData).token : '';
+
+      // 2. Enviamos el token en las cabeceras (Seguridad)
+      const response = await fetch(`${API_BASE}/admin/pedidos`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+          'X-Auth-Token': token
+        }
+      });
       const data = await response.json();
-      setPedidos(data || []);
+      
+      // 3. Validamos la respuesta estructural de nuestra API
+      if (data && data.status === 'success') {
+        setPedidos(data.data || []);
+      } else if (Array.isArray(data)) {
+        setPedidos(data);
+      } else {
+        setPedidos([]);
+      }
     } catch (error) {
       console.error(error);
       Alert.alert('Error', 'No se pudieron cargar los pedidos.');
@@ -37,9 +58,26 @@ export default function AdminPedidosScreen({ navigation }) {
     setModalVisible(true);
     setCargandoDetalle(true);
     try {
-      const response = await fetch(`http://192.168.1.4/novatrend_api/admin/pedidos/detalle?id=${pedido.IDOrden}`);
+      const sessionData = await AsyncStorage.getItem('@novatrend_admin_session');
+      const token = sessionData ? JSON.parse(sessionData).token : '';
+
+      const response = await fetch(`${API_BASE}/admin/pedidos/detalle?id=${pedido.IDOrden}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+          'X-Auth-Token': token
+        }
+      });
       const data = await response.json();
-      setDetallePedido(data || []);
+      
+      if (data && data.status === 'success') {
+        setDetallePedido(data.data || []);
+      } else if (Array.isArray(data)) {
+        setDetallePedido(data);
+      } else {
+        setDetallePedido([]);
+      }
     } catch (error) {
       console.error(error);
       Alert.alert('Error', 'No se pudo cargar el detalle del pedido.');
@@ -180,7 +218,6 @@ export default function AdminPedidosScreen({ navigation }) {
                   ))
                 )}
 
-                {/* Acciones de Estado */}
                 <Text style={[styles.modalLabel, { marginTop: 20 }]}>CAMBIAR ESTADO A:</Text>
                 <View style={styles.actionRow}>
                   {pedidoSeleccionado.EstadoOrden !== 'Aprobada' && (
@@ -226,8 +263,6 @@ const styles = StyleSheet.create({
   label: { fontSize: 9, color: '#888', fontWeight: 'bold', letterSpacing: 1, marginBottom: 4 },
   value: { fontSize: 12, color: '#ccc' },
   totalValue: { fontSize: 14, color: '#fff', fontWeight: 'bold' },
-
-  // Modal
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'flex-end' },
   modalContent: { backgroundColor: '#151515', borderTopLeftRadius: 15, borderTopRightRadius: 15, padding: 20, maxHeight: '85%' },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, borderBottomWidth: 1, borderBottomColor: '#333', paddingBottom: 15 },
