@@ -4,6 +4,8 @@ import {
   Platform, StatusBar, ActivityIndicator, Alert
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage'; // NUEVO
+import { API_BASE } from '../config/api';
 
 export default function AdminClientesScreen({ navigation }) {
   const [clientes, setClientes] = useState([]);
@@ -16,10 +18,22 @@ export default function AdminClientesScreen({ navigation }) {
   const cargarClientes = async () => {
     setCargando(true);
     try {
-      // Ajusta la IP si es necesario según tu configuración
-      const response = await fetch('http://192.168.X.X/novatrend_api/admin/clientes');
+      const sessionData = await AsyncStorage.getItem('@novatrend_admin_session');
+      const token = sessionData ? JSON.parse(sessionData).token : '';
+
+      const response = await fetch(`${API_BASE}/admin/clientes`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+          'X-Auth-Token': token
+        }
+      });
       const data = await response.json();
-      if (Array.isArray(data)) {
+      
+      if (data && data.status === 'success') {
+        setClientes(data.data || []);
+      } else if (Array.isArray(data)) {
         setClientes(data);
       } else {
         setClientes([]);
