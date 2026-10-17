@@ -74,3 +74,5 @@ Contraseña: admin123
 
 Tienda (Cliente):
 Se recomienda crear un usuario nuevo desde la aplicación móvil utilizando el botón "Usar mi ubicación" para evaluar el módulo nativo de GPS y la creación del Token de sesión.
+npx expo install @react-native-community/calendar
+npx expo install @react-native-community/datetimepicker
