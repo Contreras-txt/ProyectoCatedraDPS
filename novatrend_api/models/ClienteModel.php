@@ -101,6 +101,9 @@ class ClienteModel
     /**
      * Devuelve el detalle de una orden específica (solo si pertenece al cliente).
      */
+    /**
+     * Devuelve el detalle de una orden específica (solo si pertenece al cliente).
+     */
     public function obtenerDetalleOrden(int $idOrden, int $idCliente): array
     {
         $stmt = $this->pdo->prepare("
@@ -109,13 +112,23 @@ class ClienteModel
                 d.Talla,
                 d.PrecioUnitario,
                 p.NombreProducto,
-                p.IDProducto
+                p.IDProducto,
+                COALESCE(NULLIF(p.Imagen, ''), 'default.jpg') AS Imagen
             FROM detalles_orden d
             JOIN productos p ON d.IDProducto = p.IDProducto
             JOIN ordenes o   ON d.IDOrden    = o.IDOrden
             WHERE d.IDOrden = :orden AND o.IDCliente = :cliente
         ");
         $stmt->execute([':orden' => $idOrden, ':cliente' => $idCliente]);
-        return $stmt->fetchAll();
+        $detalles = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        // Validación de seguridad para asegurar la imagen por defecto
+        foreach ($detalles as &$fila) {
+            if (empty($fila['Imagen'])) {
+                $fila['Imagen'] = 'default.jpg';
+            }
+        }
+
+        return $detalles;
     }
 }
