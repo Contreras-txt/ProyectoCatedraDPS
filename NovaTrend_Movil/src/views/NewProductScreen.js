@@ -41,23 +41,21 @@ export default function NewProductScreen({ navigation, route }) {
   );
 
   const { createProduct, updateProduct, categories } = useInventory();
-  
-  // NUEVO: Instanciamos el sistema global de alertas
   const { showAlert, showToast } = useContext(AlertContext);
 
   const seleccionarImagen = async () => {
+    // CORRECCIÓN: Actualizado a la sintaxis moderna para evitar el warning amarillo
     let result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ['images'], 
       allowsEditing: true,
       aspect: [1, 1],
       quality: 0.7,
       base64: true,
     });
 
-    if (!result.canceled && result.assets[0].base64) {
+    if (!result.canceled && result.assets && result.assets.length > 0 && result.assets[0].base64) {
       const base64Image = `data:image/jpeg;base64,${result.assets[0].base64}`;
       
-      // NUEVO: Validación estricta del tamaño de la imagen (Máx 2MB)
       const errorTamano = validateImageSize(base64Image, 2);
       if (errorTamano) {
         showAlert({ 
@@ -75,11 +73,17 @@ export default function NewProductScreen({ navigation, route }) {
   };
 
   const handleTallaChange = (talla, valor) => {
-    setTallas({ ...tallas, [talla]: valor });
+    // Remover caracteres que no sean números para evitar enviar letras al servidor
+    const valorLimpio = valor.replace(/[^0-9]/g, '');
+    setTallas({ ...tallas, [talla]: valorLimpio });
   };
 
   const handleSave = async () => {
-    if (!nombre.trim() || !precio.trim() || !categoriaId) {
+    // Limpiamos espacios antes de validar
+    const nombreLimpio = nombre.trim();
+    const precioLimpio = precio.trim();
+
+    if (!nombreLimpio || !precioLimpio || !categoriaId) {
       showAlert({ 
         title: 'Campos Incompletos', 
         message: 'El nombre, precio y categoría son obligatorios.', 
@@ -89,7 +93,7 @@ export default function NewProductScreen({ navigation, route }) {
       return;
     }
 
-    const errorPrecio = validatePrice(precio);
+    const errorPrecio = validatePrice(precioLimpio);
     if (errorPrecio) {
       showAlert({ 
         title: 'Precio Inválido', 
@@ -100,7 +104,28 @@ export default function NewProductScreen({ navigation, route }) {
       return;
     }
 
-    // NUEVO: Intercepción del Bug de "file://"
+    // Validación extra para evitar rechazos del servidor (Reglas estrictas de PHP)
+    const totalTallas = Object.values(tallas).reduce((acc, val) => acc + (parseInt(val) || 0), 0);
+    if (totalTallas <= 0) {
+      showAlert({ 
+        title: 'Inventario Inválido', 
+        message: 'Debes asignar al menos 1 unidad en cualquier talla para poder guardar el producto.', 
+        type: 'warning', 
+        theme: 'dark' 
+      });
+      return;
+    }
+    
+    if (!colores.trim()) {
+       showAlert({ 
+        title: 'Colores faltantes', 
+        message: 'Debes especificar los colores del producto.', 
+        type: 'warning', 
+        theme: 'dark' 
+      });
+      return;
+    }
+
     let imagenFinal = imagen;
     if (!imagenFinal || imagenFinal.startsWith('file:')) {
       imagenFinal = 'default.jpg';
@@ -108,13 +133,13 @@ export default function NewProductScreen({ navigation, route }) {
 
     const productoData = {
       id: productoAEditar ? productoAEditar.IDProducto : null,
-      nombre,
+      nombre: nombreLimpio,
       categoria: categoriaId,
-      precio: parseFloat(precio),
-      colores,
+      precio: parseFloat(precioLimpio),
+      colores: colores.trim(),
       imagen: imagenFinal,
       tallas,
-      descripcion
+      descripcion: descripcion.trim()
     };
 
     let exito = false;
@@ -125,11 +150,7 @@ export default function NewProductScreen({ navigation, route }) {
     }
 
     if (exito) {
-      showToast({ 
-        message: `Producto ${productoAEditar ? 'actualizado' : 'creado'} exitosamente.`, 
-        type: 'success', 
-        theme: 'dark' 
-      });
+      // El Toast verde ya se manda desde el useInventory, solo retrocedemos
       navigation.goBack();
     }
   };
@@ -145,13 +166,13 @@ export default function NewProductScreen({ navigation, route }) {
 
           <View style={styles.formContainer}>
             <Text style={styles.label}>Nombre del Producto</Text>
-            <TextInput style={styles.input} placeholder="Ej. Camiseta" placeholderTextColor="#444" value={nombre} onChangeText={setNombre} />
+            <TextInput style={styles.input} placeholder="Ej. Camiseta" placeholderTextColor="#444" value={nombre} onChangeText={setNombre} maxLength={100} />
 
             <View style={styles.row}>
               <View style={styles.halfWidth}>
                 <Text style={styles.label}>Categoría</Text>
                 <TouchableOpacity style={[styles.input, styles.selectButton]} onPress={() => setModalVisible(true)}>
-                  <Text style={styles.selectButtonText}>{categoriaNombre}</Text>
+                  <Text style={styles.selectButtonText} numberOfLines={1}>{categoriaNombre}</Text>
                   <Text style={{ color: '#888' }}>▼</Text>
                 </TouchableOpacity>
 
@@ -192,7 +213,7 @@ export default function NewProductScreen({ navigation, route }) {
             <View style={styles.row}>
               <View style={styles.halfWidth}>
                 <Text style={styles.label}>Colores</Text>
-                <TextInput style={styles.input} placeholder="Ej. Negro" placeholderTextColor="#444" value={colores} onChangeText={setColores} />
+                <TextInput style={styles.input} placeholder="Ej. Negro, Blanco" placeholderTextColor="#444" value={colores} onChangeText={setColores} maxLength={50} />
               </View>
               <View style={styles.halfWidth}>
                 <Text style={styles.label}>Imagen del Producto</Text>
@@ -201,20 +222,20 @@ export default function NewProductScreen({ navigation, route }) {
                   onPress={seleccionarImagen}
                 >
                   <Text style={{ color: '#fff', fontSize: 11, textAlign: 'center' }} numberOfLines={1}>
-                    {imagen && imagen.startsWith('data:image') ? 'Nueva foto seleccionada ✓' : (imagen || 'Subir desde galería')}
+                    {imagen && imagen.startsWith('data:image') ? 'Nueva foto lista' : (imagen || 'Subir desde galería')}
                   </Text>
                 </TouchableOpacity>
               </View>
             </View>
 
-            <Text style={styles.label}>Inventario de tallas:</Text>
+            <Text style={styles.label}>Inventario de tallas (Debe haber al menos 1 unidad en total):</Text>
             <View style={styles.tallasContainer}>
               {['xs', 's', 'm', 'l', 'xl'].map((talla) => (
                 <View key={talla} style={styles.tallaBox}>
                   <Text style={styles.tallaLabel}>{talla.toUpperCase()}</Text>
                   <TextInput
                     style={styles.tallaInput}
-                    keyboardType="numeric"
+                    keyboardType="number-pad"
                     value={tallas[talla]}
                     onChangeText={(val) => handleTallaChange(talla, val)}
                   />
@@ -223,7 +244,7 @@ export default function NewProductScreen({ navigation, route }) {
             </View>
 
             <Text style={styles.label}>Descripción:</Text>
-            <TextInput style={[styles.input, styles.textArea]} placeholder="Descripción..." placeholderTextColor="#444" multiline value={descripcion} onChangeText={setDescripcion} />
+            <TextInput style={[styles.input, styles.textArea]} placeholder="Descripción..." placeholderTextColor="#444" multiline value={descripcion} onChangeText={setDescripcion} maxLength={500} />
 
             <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
               <Text style={styles.saveButtonText}>{productoAEditar ? 'Actualizar Producto' : 'Guardar Producto'}</Text>
