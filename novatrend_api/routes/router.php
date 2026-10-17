@@ -6,6 +6,17 @@
 session_start();
 require_once __DIR__ . '/../config/conexion.php';
 
+// ── PERMISOS DE RED (CORS) PARA REACT NATIVE ──
+header("Access-Control-Allow-Origin: *");
+header("Access-Control-Allow-Headers: Authorization, Content-Type, X-Auth-Token");
+header("Access-Control-Allow-Methods: GET, POST, OPTIONS");
+
+// Si es la petición fantasma de verificación, la dejamos pasar
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    http_response_code(200);
+    exit;
+}
+
 // Obtener la ruta limpia
 $base = BASE_URL;
 $uri  = substr(parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH), strlen($base));
@@ -56,25 +67,27 @@ $method = $_SERVER['REQUEST_METHOD'];
 $dispatched = false;
 
 // ── CAPA DE SEGURIDAD (MIDDLEWARE) ────────────────
-// Si la ruta empieza con "/admin/" (y no es el login), verificamos el Token
 if (strpos($uri, '/admin/') === 0 && $uri !== '/admin/login') {
     
-    $headers = apache_request_headers();
-    $authHeader = $headers['Authorization'] ?? '';
+    // 1. Buscamos el Pase VIP que XAMPP no puede borrar
+    $token = $_SERVER['HTTP_X_AUTH_TOKEN'] ?? '';
     
-    // Extraemos el token ("Bearer dkf83...")
-    $token = '';
-    if (preg_match('/Bearer\s(\S+)/', $authHeader, $matches)) {
-        $token = $matches[1];
+    // 2. Si no viene, intentamos el método tradicional
+    if (!$token) {
+        $authHeader = $_SERVER['HTTP_AUTHORIZATION'] ?? '';
+        if (!$authHeader && function_exists('apache_request_headers')) {
+            $headers = apache_request_headers();
+            $authHeader = $headers['Authorization'] ?? $headers['authorization'] ?? '';
+        }
+        if (preg_match('/Bearer\s(\S+)/i', $authHeader, $matches)) {
+            $token = $matches[1];
+        }
     }
     
-    // Si no hay token en el header, detenemos la petición y devolvemos 401
+    // Si definitivamente no hay token, bloqueamos
     if (!$token) {
         http_response_code(401);
-        echo json_encode([
-            "status" => "error", 
-            "message" => "Acceso denegado. Se requiere autenticación de administrador."
-        ]);
+        echo json_encode(["status" => "error", "message" => "SESSION_EXPIRED"]);
         exit;
     }
 }
